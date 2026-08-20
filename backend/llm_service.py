@@ -10,7 +10,9 @@ from typing import List, Dict, Optional
 #     UserMessage,
 #     FileContentWithMimeType,
 # )
-
+class LlmChat: pass
+class UserMessage: pass
+class FileContentWithMimeType: pass
 logger = logging.getLogger(__name__)
 
 
