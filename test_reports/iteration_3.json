@@ -1,0 +1,48 @@
+{
+  "summary": "Full E2E re-verification after fixes for the reported 'MCQ History 404 + notes disappearing' bug. Verdict: PASS on all fronts. Backend: 25/25 pytest cases green (auth, notes text+PDF via Gemini, MCQ generate single+mixed, session fetch, answer idempotent, history+filters, chapters, progress math, no-cascade note delete, and a new /api contract suite). Frontend E2E (real preview URL): (a) existing user quicktest@example.com — 4 prior notes preserved (हिंदी, Test, प्रकाश संश्लेषण, Photosynthesis), 5 MCQs in history, refresh on both History and Notes preserved all data, 0 API 404s across 25 calls. (b) Fresh user tester+ec8e7a83@example.com — registered, uploaded 'Solar System' paste-text note, generated 5 Gemini MCQs, answered 2 in Practice, MCQ History showed all 5, My Progress showed answered=2 correct=0 incorrect=2 accuracy=0% (math consistent), duplicate paste-text of same chapter created a NEW note (2 notes total, no clone/delete of previous), deleting the original note preserved all 5 MCQs in history (regression against previous cascade delete). 0/29 API calls returned any 4xx/5xx.",
+  "ai_feature_verdicts": [
+    "MCQ generation from paste-text note (Gemini gemini-2.5-flash) - pass - evidence: fresh user POST /api/mcqs/generate {note_id, count:5} -> 200 with 5 real MCQs, each with A-D options + correct_option + explanation; verified through UI (Q1 'Which planet has the hottest surface in the solar system?', Q2 'Which planet rotates on its side?', Q3 'How many moons does the planet Mars have?', Q4 'Which planet is known for having prominent rings?', Q5 'What is the largest planet in our solar system?') all grounded in the pasted Solar System notes. Backend pytest also confirmed with Cell Biology note (test_generate_from_text_note).",
+    "MCQ mixed generation (Gemini) - pass - evidence: backend pytest test_generate_mixed and test_post_generate_mixed both 200, chapters returned intersect {Cell Biology, Photosynthesis, API Contract}.",
+    "PDF text extraction via Gemini (test_pdf_note_extracted_via_gemini) - pass - evidence: photosynthesis PDF upload returned content_length>40 with keywords photosynthesis/chlorophyll/Calvin/chloroplast in preview.",
+    "skills_loaded: ai-testing-core, ai-testing-llm (LLM MCQ generation is the primary AI feature)."
+  ],
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "My Progress", "issues": ["Recharts console warning 'The width(-1) and height(-1) of chart should be greater than 0'. Chart still renders correctly after layout stabilizes; safe to ignore or add minWidth/minHeight to the ResponsiveContainer wrapper."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_api_contract.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Optional: silence the recharts ResponsiveContainer width/height warning on /progress by giving the wrapper a fixed minWidth/minHeight or explicit width/height. Non-blocking cosmetic."
+  ],
+  "critical_code_review_comments": [
+    "History.jsx was calling toast.error(...) inside its load() catch block but was NOT importing toast from 'sonner'. In the reported failure scenario (a real /api/mcqs/history 404), the ReferenceError inside the catch would swallow the error toast and leave the page silent. Fixed in this iteration by adding: import { toast } from 'sonner'. Main agent should confirm this fix is retained. (Progress.jsx / Practice.jsx / Notes.jsx / Mixed.jsx already imported toast correctly.)",
+    "server.py delete_note (line 237-243) is confirmed to no longer cascade-delete MCQs — history preservation regression is now covered by test_delete_note_preserves_mcqs_history (pytest) and the fresh-user Playwright flow.",
+    "api.js interceptor only redirects on 401 (as intended), so a transient 404 no longer wipes localStorage — verified: refreshing on both /history and /notes preserves data.",
+    "server.py is 451 lines — still one-file. Not blocking, but a future refactor split (auth / notes / mcqs / progress) would help maintainability.",
+    "Notes upload endpoint accepts 'chapter' + either 'file' OR 'text' — 400/422 validated for empty chapter and for missing-body. Good.",
+    "test_credentials.md still references student+test@example.com — the review requested quicktest@example.com. Consider updating the file (or leaving both) so the next testing agent uses the same seeded account."
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/History.jsx (added missing 'import { toast } from \"sonner\"' so the catch-block toast doesn't ReferenceError)",
+    "/app/backend/tests/backend_test.py (renamed test_delete_note_cascades_mcqs -> test_delete_note_preserves_mcqs_history and rewrote it to assert MCQs survive note deletion — the OLD test would now be misleading given the deliberately removed cascade)",
+    "/app/backend/tests/test_api_contract.py (NEW — regression suite that hits every /api route the frontend calls, so any future 404 like the one the user reported is caught in CI)"
+  ],
+  "success_rate": {"backend": "100% (25/25 pytest cases in 16.2s)", "frontend": "100% (10/10 E2E steps: existing-user history no-404, refresh persistence x2, fresh-user register → note upload → 5-MCQ generate → practice answer x2 → history=5 → progress math → duplicate-note no-clone → delete-preserves-history; 0/29 API calls non-2xx)"},
+  "test_credentials": "Existing: quicktest@example.com / Test1234! (verified 4 notes + 5 MCQs). Fresh users registered per run: tester+<uuid>@example.com / Test1234! via POST /api/auth/register.",
+  "seed_data_creation": "Fresh flow user created 1x 'Solar System' paste-text note, 1x duplicate 'Solar System' note, 5 generated MCQs, 2 answered (both wrong -> accuracy 0%). Original 'Solar System' note deleted at end (history retained).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "User-reported bug ('MCQ History 404 + notes disappearing') is fully resolved and now guarded by two regression layers: backend/tests/test_api_contract.py hits every frontend-consumed /api route including /api/mcqs/history and /api/mcqs/chapters; backend_test.py::test_delete_note_preserves_mcqs_history guards against re-introducing cascade delete. Frontend now handles a transient 404 without wiping localStorage (api.js 401-only redirect) and without blanking the notes list on the History page (Notes.jsx has its own try/catch, History.jsx now correctly imports toast). If retesting: login as quicktest@example.com / Test1234!, click MCQ History — expect 5 MCQs, 0 axios errors; refresh — data must persist. For fresh flow, register with tester+<uuid>@example.com, upload paste-text (chapter='Solar System'), Generate 5 MCQs, answer 2, then hit History and Progress.",
+  "rca of the issue": "Original user report (404 on /api/mcqs/history followed by empty My Notes) could NOT be reproduced against the current build in this iteration or in iteration_2. The two contributing factors that would cause the 'notes disappear' symptom, both now fixed by main agent, are: (1) api.js response interceptor previously redirected to /login on ANY non-2xx and cleared localStorage — now only on 401 (verified in /app/frontend/src/lib/api.js line 19). (2) Notes.jsx load() had no try/catch, so a rejected /api/notes call would leave notes=[] silently — now wrapped in try/catch with a toast. Additionally, delete_note previously cascade-deleted MCQs, which would have made the reported 'my history is gone too' symptom irreversible; that cascade has been removed (server.py:242 'Preserve MCQs in history — do NOT cascade delete'). The one residual defect I found and fixed while verifying was that History.jsx invoked toast.error inside its catch block without importing toast — this would have thrown a ReferenceError swallowing the user-facing error message on a real 404. All routes /api/notes, /api/notes/upload, /api/mcqs/history, /api/mcqs/chapters, /api/mcqs/session/{id}, /api/mcqs/generate, /api/mcqs/generate-mixed, /api/mcqs/{id}/answer, /api/progress, /api/auth/me are confirmed to return 200 for an authenticated user (see test_api_contract.py::test_no_404_on_any_frontend_route)."
+}

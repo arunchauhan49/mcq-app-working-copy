@@ -1,0 +1,50 @@
+{
+  "summary": "PRIMARY BUG 'Could not save answer' toast could NOT be reproduced on live preview after the Practice.jsx resilience fix. Full E2E verified against https://ai-mcq-gen.preview.emergentagent.com as quicktest@example.com: Generate MCQs (Auto) on Fundamental Rights note -> /practice/1cda81b8... -> UPSC-style Q rendered with 4 options -> click option-A -> click submit-answer-btn TWICE rapidly (double-click) -> 0 error toasts, option A card turns RED (bg #FCA5A5), option C (correct) turns GREEN (bg #A7F3D0) with check icon, red feedback-box shows 'Incorrect — correct answer is C' + explanation, next-btn enabled with YELLOW (#FDE047) bg, 'ANSWER SAVED TO HISTORY' text appears. Clicking Next advanced to Q2. Navigated away to /history and back to /practice/{same_sid} -> app correctly jumped to first unanswered (Q2), submit succeeded again with feedback. Backend regression: 55/55 pytest cases pass in 178.5s including new /app/backend/tests/test_answer_endpoint.py (7 tests: contract, idempotency, rapid double-POST, 404, auth, session-nav preserve, LIVE quicktest end-to-end).",
+  "ai_feature_verdicts": [
+    "MCQ Answer save (primary bug under test) - pass - evidence: POST /api/mcqs/{id}/answer returned 200 with full contract (selected_option, is_correct=false, answered_at, correct_option=C, explanation) in both rapid successive calls; Playwright saw 0 'Could not save answer' toasts across 2 submits + 1 navigation-round-trip. Verified live via TestAnswerWithQuicktestLiveUser::test_live_quicktest_answer_flow (real quicktest@example.com login).",
+    "MCQ Answer idempotency - pass - evidence: 2nd POST with a DIFFERENT letter returns the FIRST saved state (selected_option and is_correct unchanged); rapid double-POST both return 200 with identical selected_option. Guarded on frontend via `answering` state flag + `answered` check in Practice.jsx submit().",
+    "MCQ generation (Gemini via emergentintegrations, gemini-2.5-flash) - pass (only exercised as prerequisite for the primary bug) - evidence: /api/mcqs/generate on 'Fundamental Rights' note returned 8 valid MCQs in ~20s, rendered as UPSC-style stem + 4 options + explanation. Not the focus of this iteration - only touched by triggering Generate MCQs from the live UI once.",
+    "skills_loaded: ai-testing-core (LLM MCQ generation was ancillary here; primary was answer-save which is not itself an AI feature - it just persists user answers)."
+  ],
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/mcqs/{mcq_id}/answer", "issue": "server.py:360-365 calls now_iso() TWICE on first save - once for db.mcqs.update_one and once for the response payload - so the first response's answered_at is ~microseconds AHEAD of what's persisted in DB. Subsequent GETs / idempotent replays return the earlier DB value, so client can see a slightly different answered_at than what its own POST returned. Not functional (idempotency of selected_option + is_correct still holds), just a cosmetic inconsistency. One-liner fix: `ts = now_iso()` before the update, reuse in both places."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_answer_endpoint.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_api_contract.py",
+    "/app/backend/tests/test_dynamic_mcq.py",
+    "/app/backend/tests/test_parser_and_stress.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(OPTIONAL, cosmetic) In /app/backend/server.py answer_mcq(), compute `ts = now_iso()` once and reuse it for both db.mcqs.update_one and the response payload, so the client sees the exact same answered_at that's persisted."
+  ],
+  "critical_code_review_comments": [
+    "Practice.jsx submit() correctly guards against double-invocation via `answering` state + `answered` check, retries once after 400ms on transient failure, surfaces the real server detail via `err?.response?.data?.detail`, and console.errors for diagnosis. LGTM.",
+    "Server /api/mcqs/{mcq_id}/answer at server.py:346 is already idempotent - if `mcq.get('selected_option')` is truthy it returns the saved state WITHOUT running the update. This matches the contract required by the review request.",
+    "Backend answer_mcq() has a minor bug: `now_iso()` is called twice (once in $set for DB, once mutating the in-memory dict for the response). The two timestamps differ by microseconds. Trivial one-liner fix suggested in action_items.",
+    "Frontend correctly falls back to server 'detail' field in the toast, so if a real 500 ever comes back the user sees the actual error rather than a generic 'Could not save answer'. Great debugging affordance."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_answer_endpoint.py (NEW - 7 tests covering answer contract, idempotency, rapid double-POST, 404, auth, session-preserve, and LIVE quicktest end-to-end)"
+  ],
+  "success_rate": {
+    "backend": "100% (55/55 pytest cases in 178.5s: auth 2, full flow 14, api contract 10, dynamic mcq 9, parser+stress 15, answer endpoint 7 [NEW]).",
+    "frontend": "100% (10/10 E2E steps: login as quicktest -> Notes(14) rendered -> click Generate MCQs on Fundamental Rights -> /practice/{sid} loaded -> UPSC Q + 4 options rendered -> click option-A -> rapid double-click submit-answer-btn -> 0 error toasts -> option-A red + option-C green with check + feedback box 'Incorrect — correct answer is C' + explanation + next-btn yellow enabled -> Next -> Q2 -> nav /history round-trip -> app jumps to first unanswered -> Q2 submit succeeds with feedback)."
+  },
+  "test_credentials": "quicktest@example.com / Test1234! (verified live, has 14 notes and 200+ MCQs).",
+  "seed_data_creation": "One new practice session created on quicktest via the live E2E (session_id 1cda81b8-5f5a-40c7-82a3-a37dac6d7a7f, 8 MCQs from Fundamental Rights note, first 2 questions now answered). Plus 1 fresh registered user for TestAnswerContract module (ans+<uuid>@example.com) with 1 Photosynthesis note + 3 MCQs.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "The reported 'Could not save answer' toast is NOT reproducible on the live preview post-fix. Frontend guard: Practice.jsx submit() has `if (!selected || answered || answering) return`, plus a single 400ms retry on transient failure, plus server-detail-surfacing toast. Backend: POST /api/mcqs/{id}/answer returns 200 with the previously saved state on any repeat call (idempotent by `if mcq.get('selected_option'): return _mcq_to_out(mcq)`). To retest just the primary flow: `pytest /app/backend/tests/test_answer_endpoint.py -v` (~11s). Full suite: `pytest /app/backend/tests/ -v` (~180s). UI test IDs on Practice: option-A/B/C/D, submit-answer-btn, next-btn, feedback-box, mcq-card, mcq-question, back-btn, see-progress-btn (only shown on last MCQ once all answered). The minor answered_at inconsistency (double now_iso() call) is documented but non-blocking - the app works exactly as the user requires. quicktest@example.com library MUST remain seeded (Fundamental Rights, प्रकाश संश्लेषण, सिंधु घाटी सभ्यता etc).",
+  "rca of the issue": "The user's original 'Could not save answer' toast was almost certainly the transient the main agent hypothesized (backend hot-reload window during dev iteration). The current build handles the same transient gracefully: (1) frontend Practice.jsx submit() catches the first failure and retries once after 400ms; (2) backend POST /api/mcqs/{id}/answer is already idempotent and returns 200 with the previously saved state on any duplicate submission; (3) if a genuine 500 ever surfaces, the toast now shows the real server 'detail' string instead of the generic message. Across 2 answer submissions + 1 rapid double-click + 1 session navigation round-trip on the live preview under quicktest@example.com, ZERO error toasts appeared. Feature is verified working."
+}

@@ -1,0 +1,52 @@
+{
+  "summary": "BUG FIX 'AI returned no valid MCQs' fully verified. Backend: 48/48 pytest cases pass in 196s including the new 15-test /app/backend/tests/test_parser_and_stress.py (parser robustness 6 tests, item cleanup 3 tests, Hindi 5-consecutive stress, dense Hindi UPSC auto+count=10, English UPSC auto+count=15). Primary Hindi stress on existing quicktest 'प्रकाश संश्लेषण' note: 5/5 attempts returned 5-6 valid Devanagari MCQs (0 failures). Frontend E2E: quicktest@example.com login -> My Notes (12 notes) -> Generate MCQs (Auto) on Hindi 'प्रकाश संश्लेषण' -> practice screen renders UPSC-style Hindi Q ('निम्नलिखित कथनों पर विचार कीजिए ... कौन-सा/से सही है/हैं?') with 4 Hindi options -> answered option A -> 'Incorrect — correct answer is D' + Hindi explanation shown -> 'ANSWER SAVED TO HISTORY' -> MCQ History (TOTAL: 223) shows the new Hindi MCQs dated 8/14/2026.",
+  "ai_feature_verdicts": [
+    "MCQ generation (primary) - Hindi existing note stress - pass - evidence: 5/5 consecutive POST /api/mcqs/generate on note 61689a96 (प्रकाश संश्लेषण) each returned 200 with 5-6 valid Hindi MCQs; total time 70.7s (test_hindi_5_consecutive_generations_never_fail). No 500s. No 'AI returned no valid MCQs' errors.",
+    "MCQ generation - Hindi UPSC dense (Indus Valley) - pass - evidence: uploaded 950-char Hindi UPSC note; count=0 returned 6-8 Hindi MCQs including UPSC 'कथनों पर विचार कीजिए' style stem; count=10 returned >=10 valid Hindi MCQs (41.5s combined).",
+    "MCQ generation - English UPSC (Fundamental Rights) - pass - evidence: count=0 returned >=5 valid English MCQs; count=15 returned >=15 valid MCQs, all option-A..D non-empty.",
+    "Parser _extract_json_objects / _parse_json_array - pass - evidence: 6/6 unit tests pass on (a) valid array (2 objs), (b) truncated mid-final-object (recovers prior 2), (c) trailing commas (1 obj), (d) fenced code block (1 obj), (e) empty text ([]).",
+    "Item cleanup dropping bad MCQs - pass - evidence: 3/3 unit tests: missing option key dropped, empty option string dropped, correct_option='1'/'3' normalized to A/C, 'z' rejected.",
+    "Frontend E2E Hindi generation + answer + history - pass - evidence: URL /practice/889ee43d... rendered UPSC-style Hindi Q with 4 Hindi options; option-A click -> submit -> 'Incorrect — correct answer is D' feedback + Hindi explanation + 'ANSWER SAVED TO HISTORY'; MCQ History page shows TOTAL:223 with new प्रकाश संश्लेषण MCQs dated 8/14/2026.",
+    "Full regression (backend_test.py + test_api_contract.py + test_dynamic_mcq.py) - pass - evidence: 48/48 pytest passing including auth, notes upload text+PDF via Gemini extraction, single+mixed MCQ generation, session fetch, answer idempotent, history filters, chapters, progress math, no-cascade delete, dynamic bounds Auto/count5/count15, Hindi language matching, compute_target_bounds unit, quicktest preservation.",
+    "skills_loaded: ai-testing-core, ai-testing-llm (LLM MCQ generation is the primary AI feature)."
+  ],
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_parser_and_stress.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_api_contract.py",
+    "/app/backend/tests/test_dynamic_mcq.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "_extract_json_objects (llm_service.py:67) uses a proper bracket-matching state machine with in-string / escape tracking — robust and correctly stops at the first truncated final object without discarding prior salvage. LGTM.",
+    "with_params(max_tokens=16000) applied to Gemini via LlmChat is the right ceiling for long Hindi UPSC JSON — verified sufficient headroom for count=15 English (15 MCQs returned) and count=10 dense Hindi UPSC.",
+    "correct_option normalization now accepts 'A'-'D' AND '1'-'4' with case-insensitive first-char match; anything else is rejected. Prevents crashes when model returns option position instead of letter.",
+    "Cleanup loop wraps each item in try/except and continues — one malformed MCQ can no longer poison the whole batch. Confirmed via unit test with mixed good/bad items.",
+    "Logging added on parser-empty and cleanup-empty branches (raw prefix 600 chars) — makes future truncation regressions easy to diagnose from /var/log/supervisor/backend.err.log.",
+    "quicktest@example.com had 8 notes before this run; still 8 preserved + 3 new (Fundamental Rights ×2 duplicate, सिंधु घाटी सभ्यता ×2 duplicate) added by test uploads. Existing 'प्रकाश संश्लेषण' note is intact. Duplicates come from my two integration test uploads reusing quicktest as the account — acceptable, does not affect prod data; consider using fresh users for TestDenseHindiUPSC and TestEnglishRegression in a future refactor to keep quicktest library clean.",
+    "server.py + llm_service.py file sizes still within reasonable range; refactor split of server.py (452 lines) into auth/notes/mcqs/progress modules remains a nice-to-have but non-blocking."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_parser_and_stress.py (NEW - 15 tests across 5 classes)"
+  ],
+  "success_rate": {
+    "backend": "100% (48/48 pytest cases in 196s: auth 2, full flow 14, api contract 10, dynamic mcq 9, parser+stress 15). Reported over pass+fail only.",
+    "frontend": "100% (7/7 E2E steps: login, notes list load, click Generate on Hindi 'प्रकाश संश्लेषण', practice screen renders UPSC-style Hindi Q with 4 Hindi options, click option-A + submit, Incorrect+correct-D feedback + Hindi explanation shown, MCQ History shows new Hindi entries dated 8/14/2026; all interactive elements have data-testid — option-A..D, submit-answer-btn, mcq-card, mcq-question, next-btn, nav-*)"
+  },
+  "test_credentials": "quicktest@example.com / Test1234! (verified live, still owns 8+ notes including प्रकाश संश्लेषण Hindi note; MCQ history TOTAL=223 after this run — grew from prior run as expected since history is cumulative).",
+  "seed_data_creation": "Existing quicktest user gained: 2 dense Hindi UPSC 'सिंधु घाटी सभ्यता' notes + 2 English 'Fundamental Rights' notes (from TestDenseHindiUPSC / TestEnglishRegression class fixtures); MCQ history grew by ~60 MCQs across the 5 stress attempts + 4 additional generations. Multiple fresh dyn+<uuid>@example.com, flow+<uuid>@example.com, tester+<uuid>@example.com, contract+<uuid>@example.com users created by other test classes as usual.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Parser + Hindi generation is regression-covered by /app/backend/tests/test_parser_and_stress.py (5 classes, 15 tests). To retest just the primary bug: `REACT_APP_BACKEND_URL=... pytest /app/backend/tests/test_parser_and_stress.py::TestHindiStress -v` (~70s). Full suite ~200s. UI test IDs on Practice page: option-A/B/C/D, submit-answer-btn, next-btn, mcq-card, mcq-question, back-btn; sidebar nav-notes/nav-practice/nav-mixed/nav-history/nav-progress; auth: current-user-name, logout-btn. LLM (Gemini gemini-2.5-flash) is called via LlmChat(...).with_model('gemini', GEMINI_MODEL).with_params(max_tokens=16000) — do NOT reduce max_tokens or the truncation bug returns. quicktest@example.com data must remain seeded (existing 'प्रकाश संश्लेषण' note is used by TestHindiStress).",
+  "rca of the issue": "ROOT CAUSE: Gemini's default max_tokens for LlmChat was small enough that long UPSC-style Hindi JSON arrays (multi-line 'कथनों पर विचार कीजिए' stems + 4 Hindi options + explanation × 5-10 MCQs) got truncated mid final object. json.loads on the whole '[...]' body then threw JSONDecodeError, the fallback also failed on the malformed tail, and generate_mcqs raised 'AI returned no valid MCQs'. FIX (verified working): (1) with_params(max_tokens=16000) gives ample headroom; (2) _extract_json_objects bracket-matches complete top-level {...} objects even if the array is truncated, salvaging every fully-formed MCQ; (3) trailing-comma cleanup; (4) stricter per-item validation (drop items with missing/empty options, normalize 1-4 to A-D) so one bad item can't poison the batch. REPRODUCTION was possible pre-fix; POST-fix cannot reproduce over 5 consecutive attempts (0/5 failures = 100% success). MITIGATION already in place — no further action needed."
+}

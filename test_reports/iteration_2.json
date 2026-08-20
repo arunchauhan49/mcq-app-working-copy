@@ -1,0 +1,37 @@
+{
+  "summary": "Frontend-only verification of the 'Paste text' upload bug fix on My Notes page. English paste (chapter='English Chapter Test'), Hindi paste (chapter='हिंदी अध्याय', body='यह एक छोटा हिंदी नोट है।...'), and .txt file regression upload all returned HTTP 200 on POST /api/notes/upload, showed 'Note added!' toast, and appeared in the notes-list. Content-Type header sent by axios was 'multipart/form-data; boundary=----WebKitFormBoundary...' (boundary present) — confirming the fix (removal of hard-coded Content-Type in Notes.jsx submit()) is effective. MCQ generation regression also passes: 'Generate MCQs' on the Cell Biology note produced 5 real Gemini MCQs (toast 'Generated 5 MCQs'), navigated to /practice/<session_id>, and Question 1/5 rendered with A/B/C/D options grounded in the pasted notes.",
+  "ai_feature_verdicts": [
+    "MCQ generation from paste-text note (Gemini gemini-2.5-flash) - pass - evidence: POST /api/mcqs/generate -> 200; nav to /practice/d77c48e9-...; Q1 'What are cells recognized as in all known living organisms?' with options A-D grounded in the pasted Cell Biology text.",
+    "skills_loaded: none (frontend-only regression of a specific paste-text bug; ai-testing-core not required beyond the LLM sanity check already covered in iteration_1)"
+  ],
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Login page heading", "issue": "Typo: 'Sian in to your study lab' should be 'Sign in to your study lab' (visible on /login)", "selector": "h1/h2 on login card", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_2.json"
+  ],
+  "action_items": [
+    "Optional: fix 'Sian in' -> 'Sign in' typo on the Login page heading."
+  ],
+  "critical_code_review_comments": [
+    "Notes.jsx submit(): fix is correct — omitting the explicit Content-Type lets axios/browser attach the multipart boundary. Verified in DevTools network: 'multipart/form-data; boundary=----WebKitFormBoundary...'.",
+    "Notes.jsx submit(): consider adding a client-side max length hint for very large paste-text (server truncates at 20000 in llm_service, but UX-wise a small note showing that would help).",
+    "Login page has a display typo ('Sian in'). Not blocking, but user-visible."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only run)", "frontend": "100% (4/4 target flows: EN paste, HI paste, file regression, MCQ generate)"},
+  "test_credentials": "Fresh users registered per run: tester+<uuid>@example.com / Test1234! via POST /api/auth/register (matches /app/memory/test_credentials.md guidance).",
+  "seed_data_creation": "For paste-text run: notes 'English Chapter Test', 'हिंदी अध्याय', 'File Regression Chapter'. For MCQ regression run: separate fresh user with 'Cell Biology' note and 5 generated MCQs / one practice session.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Bug from user report (Paste Text -> 'Upload failed' toast for short EN/HI text) is fully resolved. Root cause was Notes.jsx sending a manual Content-Type: multipart/form-data header without a boundary, so FastAPI's Form() parser returned 422 which surfaced as 'Upload failed'. Fix (letting axios/browser set the header automatically) verified end-to-end via real preview URL. If retesting: register fresh user, login, click nav-notes, tab-text, fill chapter-input + text-input, click upload-submit, expect toast 'Note added!' and new note in notes-list.",
+  "rca of the issue": "RCA: In Notes.jsx submit() the previous version passed { headers: { 'Content-Type': 'multipart/form-data' } } to api.post. When you set that header manually, the browser/axios does NOT append the '; boundary=...' parameter, so FastAPI cannot parse the multipart body and rejects the 'chapter'/'text' form fields (422), which the UI displays as 'Upload failed'. Reproduction (pre-fix): tab-text, chapter='X', text='hi' -> submit -> toast 'Upload failed'. Mitigation applied by main agent: remove the explicit Content-Type header so axios lets the browser generate the correct 'multipart/form-data; boundary=----WebKitFormBoundary...' header. Verified this iteration with EN + HI short paste and .txt file upload all returning 200."
+}

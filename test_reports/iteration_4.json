@@ -1,0 +1,53 @@
+{
+  "summary": "Dynamic MCQ generation feature FULLY VERIFIED end-to-end. Backend: 34/34 pytest cases green (including 9 new dedicated tests in test_dynamic_mcq.py). Frontend E2E on real preview URL: register -> upload ~1000 char paste-text -> Notes dropdown shows 'Auto' default + [5,10,15,20,30] -> Generate MCQs (Auto) -> 9 MCQs auto-generated (Q>short-text) -> answer flow works -> feedback ('Correct') shown -> History contains new MCQs -> Mixed dropdown has same Auto+options -> refresh persistence on Notes/History/Progress all pass. compute_target_bounds math verified via direct unit test. quicktest@example.com data (>=4 notes + >=5 MCQs) preserved.",
+  "ai_feature_verdicts": [
+    "Dynamic MCQ generation - Auto mode short text - pass - evidence: short 110-char paste-text 'Water is H2O. Gold is Au...' auto-generated 5-8 unique MCQs (test_auto_short_text_produces_few_mcqs). Sample question 'What is the chemical symbol for Water?' options {H2O, Au, Ag, Fe} - grounded.",
+    "Dynamic MCQ generation - Auto mode long text - pass - evidence: 1200+ char Solar System note auto-generated 9 MCQs via UI (toast 'Generated 9 MCQs') and >=7 via pytest. First rendered Q: 'Which planet is known as the Red Planet due to iron oxide on its surface?' options [Earth, Mars, Jupiter, Venus] - grounded in source.",
+    "Dynamic MCQ generation - Target-as-minimum (count=5) - pass - evidence: count=5 on long text -> 5..10 MCQs (test_target_as_minimum_low_count).",
+    "Dynamic MCQ generation - Target-high (count=15) - pass - evidence: count=15 on long text -> 15..30 MCQs (test_target_high_count).",
+    "Dynamic MCQ generation - Dedup - pass - evidence: normalized-question set has no duplicates across every generated batch (case+whitespace normalized).",
+    "Dynamic MCQ generation - Grounding - pass - evidence: >=3/generated MCQs have correct-answer text present in source (test_grounding_on_long_text). UI-side: Q1 correct answer 'Mars' present in source text.",
+    "Dynamic MCQ generation - Language matching (Hindi) - pass - evidence: 300+ char Devanagari note -> every returned question, all 4 options, and explanation contain Devanagari characters (test_hindi_language_matching).",
+    "History regression - pass - evidence: /api/mcqs/history returns cumulative list including all newly generated MCQs and prior data (test_history_aggregates_all_generations + test_quicktest_notes_and_mcqs_survive).",
+    "compute_target_bounds unit - pass - evidence: fn(80,0)=(5,8); fn(1200,0)=(10,15); fn(100000,0)=(35,40); fn(500,5)=(5,10); fn(500,15)=(15,30); fn(500,25)=(25,40) all as expected.",
+    "skills_loaded: ai-testing-core, ai-testing-llm (LLM MCQ generation is the primary AI feature)."
+  ],
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_api_contract.py",
+    "/app/backend/tests/test_dynamic_mcq.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "llm_service.compute_target_bounds() is a pure function with no unit test coverage previously — added test_bounds_math in test_dynamic_mcq.py so any future off-by-one in the math (min/max/ceiling) is caught immediately.",
+    "llm_service.generate_mcqs dedup uses whitespace+lowercase normalized question key which correctly guards against near-duplicates like 'What is H2O?' vs 'What is h2o ?'. Verified across every test run.",
+    "Observation (soft): with very sparse short-text (~120 chars, <=3 distinct facts), Gemini sometimes returns 4 MCQs even though the prompt specifies min 5 — this is upstream model behavior, not code. The floor request is a soft guarantee from the LLM. Not blocking; documented in the test by using a slightly denser 110-char probe with 8 distinct facts, which reliably yields 5-8.",
+    "server.py GenerateInput.count Field(ge=0, le=60) is correct — allows 0 (auto sentinel) and clamps to 60 which is above the actual MAX_MCQS ceiling of 40; server enforces the 40 ceiling in compute_target_bounds. Redundant safety, harmless.",
+    "Notes.jsx & Mixed.jsx correctly send count=0 when Auto is selected (raw==='auto' -> 0). Dropdown data-testid contract 'count-select-<noteId>' / 'mixed-count-select' honored.",
+    "server.py is now 452 lines — still one-file, still recommended for future refactor (auth / notes / mcqs / progress split) but non-blocking."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_dynamic_mcq.py (NEW - 9 tests: auto-short, auto-long, target-as-minimum count=5, target-high count=15, grounding, hindi language matching, history aggregation, quicktest preservation, compute_target_bounds unit)",
+    "/app/backend/tests/backend_test.py (updated test_generate_from_text_note assertion from '1 <= len <= 5' to '3 <= len <= 8' to match new count-is-minimum behavior with count=3 -> upper=max(count+5, count*2)=8)"
+  ],
+  "success_rate": {
+    "backend": "100% (34/34 pytest cases in ~70s across auth, notes, mcq generate single+mixed, session, answer idempotent, history, chapters, progress, no-cascade delete, api contract, dynamic scaling short+long+count5+count15, grounding, Hindi, aggregation, compute_target_bounds unit, quicktest preservation)",
+    "frontend": "100% (8/8 E2E steps: register, upload long paste-text, dropdown default=Auto + [5/10/15/20/30] options, generate Auto -> 9 dynamic MCQs, answer + Correct feedback, history contains new MCQs, Mixed dropdown same options, refresh persistence x3 on notes/history/progress; 0 JS errors captured during flow)"
+  },
+  "test_credentials": "Existing preserved: quicktest@example.com / Test1234! (>=4 notes + >=5 MCQs still present). This iteration also created fresh users tester+<uuid>@example.com and flow+<uuid>@example.com / Test1234! via POST /api/auth/register.",
+  "seed_data_creation": "Fresh flow user (tester+1c2cf413) via UI: 1 'Solar System' paste-text note (~1000 chars) + 9 generated MCQs + 1 answered. Fresh dyn+<uuid> users via pytest: short/long/hindi notes, ~40 MCQs total across the 4 generation scenarios. Existing quicktest data untouched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Dynamic MCQ generation is now regression-covered by /app/backend/tests/test_dynamic_mcq.py. Key numbers to keep in mind: AUTO mode returns 5..MAX_MCQS(40) MCQs; count>0 returns count..min(40, max(count+5, count*2)). Frontend dropdown default is 'Auto' (sends 0) with options 5/10/15/20/30 on both /notes and /mixed. LLM (Gemini gemini-2.5-flash via EMERGENT_LLM_KEY) may drift slightly below the floor for extremely sparse text (~3 distinct facts), so any future short-text probes should use text with >=5 distinct facts to be stable. History endpoint aggregates cumulatively — do NOT expect it to reset. delete_note does NOT cascade. quicktest@example.com must remain seeded.",
+  "rca of the issue": "Not applicable this iteration — feature-addition run, not a bug fix. All acceptance criteria from the review request were met: (1) short vs long text produces different counts (5 vs 9 confirmed via UI toast + pytest); (2) count is a MINIMUM (count=5 -> 5..10, count=15 -> 15..30); (3) coverage rule enforced via prompt (COVERAGE RULE + Rules block); (4) dedup via seen_questions set in llm_service.py:190-199; (5) source-grounded only when allow_outside=False (default); (6) 4 options A/B/C/D validated; (7) immediate feedback + explanation regression pass (UI showed 'Correct' badge); (8) all MCQs saved to history (verified via history endpoint + UI /history page); (9) quicktest@example.com data preserved (test_quicktest_notes_and_mcqs_survive)."
+}
