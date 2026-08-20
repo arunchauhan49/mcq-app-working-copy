@@ -1,0 +1,132 @@
+{
+  "theme": "light",
+  "archetype": "ARCHETYPE 3: PASTEL & SOFT (Productivity) + Neo-Brutalist Twist",
+  "typography": {
+    "headings": "Cabinet Grotesk",
+    "body": "IBM Plex Sans",
+    "rules": [
+      "CRITICAL: Do NOT use Inter, Roboto, Open Sans, or Lato for Headings. They are banned.",
+      "Apply tight letter spacing on all headings (tracking-tight or tracking-tighter).",
+      "Use massive weight contrast: make headings extra bold (font-black) and body text clean and readable.",
+      "Overlines/Labels MUST be Uppercase, Tiny (text-xs), and Wide Spacing (tracking-[0.2em]).",
+      "Max heading size: text-4xl sm:text-5xl lg:text-6xl. DO NOT exceed text-6xl."
+    ],
+    "fallback_fonts": {
+      "headings": "Outfit",
+      "body": "Inter (only if IBM Plex Sans is unavailable)"
+    }
+  },
+  "colors": {
+    "background": "#FDFBF7",
+    "foreground": "#171717",
+    "primary": {
+      "DEFAULT": "#171717",
+      "foreground": "#FDFBF7"
+    },
+    "accents": {
+      "yellow": "#FDE047",
+      "mint": "#A7F3D0",
+      "lavender": "#DDD6FE",
+      "coral": "#FCA5A5",
+      "sage": "#cbd5e1"
+    },
+    "surface": {
+      "DEFAULT": "#FFFFFF",
+      "muted": "#F3F4F6"
+    },
+    "border": "#171717",
+    "rules": [
+      "Neo-Brutalist Contrast: Soft pastels must be paired with hard black borders (border-2 border-[#171717]) to avoid looking childish.",
+      "Do NOT use pure #000000 or generic grays for borders. Use deep charcoal (#171717).",
+      "Never use full-screen gradients. Keep backgrounds solid flat or with subtle noise/grain."
+    ]
+  },
+  "visual_enhancers": {
+    "shadows": [
+      "BANNED: Soft, blurry, generic SaaS drop-shadows.",
+      "MANDATORY: Solid offset shadows (e.g., shadow-[4px_4px_0px_#171717]) for active cards, buttons, and focused inputs."
+    ],
+    "surfaces": [
+      "Use flat solid surfaces for all dashboard cards.",
+      "Apply 2px solid dark borders to primary cards and inputs.",
+      "For modals/dialogs, use sharp corners or max 8px (rounded-md) border-radius to maintain the brutalist feel."
+    ],
+    "textures": [
+      "Use subtle SVG noise overlays (opacity-30) to kill the digital flatness on the main dashboard background."
+    ]
+  },
+  "components": {
+    "general": [
+      "Cards: Flat, 2px solid border, sharp or slightly rounded corners (max 8px). Solid drop shadow on hover.",
+      "Buttons: Pill-shaped or sharp rectangular. 2px solid border. Active/Hover state should translate slightly (e.g., translate-x-[2px] translate-y-[2px]) and reduce the solid shadow to simulate pressing.",
+      "Inputs: 2px solid border, pale pastel background on focus.",
+      "Sidebar: Distinct pastel background (e.g., pale mint or butter yellow) separated from the main content by a 2px solid border."
+    ],
+    "mcq_practice": [
+      "Question Card: Massive, clear typography for the question.",
+      "Options (A/B/C/D): Large clickable zones. When selected, bold the text and change background to a distinct pastel. If correct, use Mint green. If wrong, use Coral red. Apply hard solid borders.",
+      "Explanation Box: Distinct pale background (e.g., Lavender or Yellow), appearing seamlessly below the question with a dashed or solid border."
+    ],
+    "progress_dashboard": [
+      "Use strict grid hierarchy (dense and compact spacing).",
+      "Charts: Use Shadcn chart components / Recharts. Style them with the neo-brutalist solid pastel colors and hard borders.",
+      "Metric Cards (Summary): col-span-1, solid pastel backgrounds."
+    ]
+  },
+  "layouts": {
+    "grid_strategy": "The High Density Grid for Dashboards",
+    "rules": [
+      "Start with mobile-first responsive design (grid-cols-1).",
+      "Dashboard Content: grid-cols-1 md:grid-cols-3 lg:grid-cols-4 with gap-6.",
+      "Generous Spacing: Use 2-3x more spacing (p-8, p-12) around main containers. Containers with borders MUST have generous internal padding.",
+      "Sidebar should be sticky or fixed with full height (h-screen)."
+    ]
+  },
+  "motion": {
+    "rules": [
+      "Keep animations minimalist and snappy.",
+      "Hover states on all interactive elements (buttons, MCQ options, nav links).",
+      "Do NOT use 'transition: all'. Use specific transitions (transition-transform, transition-colors).",
+      "When a user selects an MCQ answer, use a quick, satisfying scale or color-fill micro-animation."
+    ]
+  },
+  "accessibility": {
+    "rules": [
+      "All interactive elements MUST include a `data-testid` attribute (e.g., `data-testid=\"mcq-option-a\"`).",
+      "Maintain high contrast ratios (APCA or WCAG AA minimum). Hard black text on pastels is naturally high contrast.",
+      "Never rely on color alone to indicate correct/incorrect (use icons + color)."
+    ]
+  },
+  "media": {
+    "image_urls": [
+      {
+        "url": "https://images.pexels.com/photos/6192763/pexels-photo-6192763.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Pastel notebooks and stationary",
+        "category": "Empty states, auth screen background, or 'Upload Notes' placeholder"
+      },
+      {
+        "url": "https://images.pexels.com/photos/12732215/pexels-photo-12732215.jpeg",
+        "description": "Colorful 3D abstract geometric shapes",
+        "category": "Hero or banner background for the 'Mixed MCQ' section"
+      }
+    ],
+    "icons": "Use lucide-react (default). For a punchier look, consider adding phosphor-icons if needed."
+  },
+  "instructions_to_main_agent": [
+    "Prioritize using pre-existing components from src/components/ui.",
+    "Do NOT use HTML-based components for advanced user interactions (use Shadcn Dropdown, Dialog, Tabs).",
+    "Implement Sonner for toast notifications (e.g., 'Note uploaded successfully', 'Progress saved').",
+    "CRITICAL: Do not use complete transparent backgrounds for headers, sidebars, or dropdowns. They must be opaque.",
+    "Implement the UI with a strict Light Theme Neo-Brutalist aesthetic: soft pastel backgrounds (yellow, mint, lavender) with hard 2px solid deep charcoal (#171717) borders and sharp offset shadows.",
+    "Use Cabinet Grotesk (or Outfit) for headings and IBM Plex Sans (or Inter) for body text."
+  ],
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "Avoid the 'AI slop' aesthetic: no generic centered layouts, simplistic gradients, or uniform styling.",
+    "Create depth through solid offset shadows rather than blurry generic shadows.",
+    "Never apply universal transition ('transition: all').",
+    "Do not center align the app container (.App { text-align: center; } is FORBIDDEN).",
+    "Always use modern, sharp interaction animations & colors relevant to the neo-brutalist style.",
+    "Use 2-3x more padding than feels comfortable. Cramped designs look cheap.",
+    "Never use placeholder URLs (via.placeholder.com). Use the provided image_urls."
+  ]
+}
