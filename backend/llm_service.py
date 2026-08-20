@@ -5,11 +5,11 @@ import logging
 from pathlib import Path
 from typing import List, Dict, Optional
 
-from emergentintegrations.llm.chat import (
-    LlmChat,
-    UserMessage,
-    FileContentWithMimeType,
-)
+# from emergentintegrations.llm.chat import (
+#     LlmChat,
+#     UserMessage,
+#     FileContentWithMimeType,
+# )
 
 logger = logging.getLogger(__name__)
 
